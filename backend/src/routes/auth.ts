@@ -125,14 +125,14 @@ authRouter.get("/callback", async (c: Context<HonoEnv>) => {
     });
 
     // Web portal / CLI redirect
-    if (stateData.redirectTo) {
+    if (redirectTo) {
       let redirectUrl: URL;
       try {
-        redirectUrl = new URL(stateData.redirectTo);
+        redirectUrl = new URL(redirectTo);
       } catch {
         const host = c.req.header("host") || "localhost:3000";
         const protocol = host.startsWith("localhost") ? "http" : "https";
-        redirectUrl = new URL(stateData.redirectTo, `${protocol}://${host}`);
+        redirectUrl = new URL(redirectTo, `${protocol}://${host}`);
       }
 
       redirectUrl.searchParams.set("access_token", accessToken);
