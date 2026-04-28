@@ -33,8 +33,16 @@ async function proxyToBackend(c: any, path: string, method: string = 'GET', body
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
+  // Node.js fetch (Vercel) requires absolute URLs
+  let fullUrl = `${BACKEND_URL}${path}`;
+  if (fullUrl.startsWith('/')) {
+    const host = c.req.header('host') || 'localhost:4000';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    fullUrl = `${protocol}://${host}${fullUrl}`;
+  }
+
   try {
-    const res = await fetch(`${BACKEND_URL}${path}`, {
+    const res = await fetch(fullUrl, {
       method,
       headers,
       body: body ? JSON.stringify(body) : null,
