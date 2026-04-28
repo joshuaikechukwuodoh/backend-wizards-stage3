@@ -4,7 +4,8 @@ import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import crypto from 'node:crypto';
 
 const app = new Hono();
-const BACKEND_URL = 'http://localhost:3000/api/v1';
+const BACKEND_URL = process.env.API_URL || 'http://localhost:3000/api/v1';
+const WEB_URL = process.env.WEB_URL || 'http://localhost:4000';
 
 // CSRF Protection Middleware
 app.use('*', async (c, next) => {
@@ -107,7 +108,7 @@ app.get('/', (c) => {
         <div class="login-card">
             <h1>Insighta Labs+</h1>
             <p>Secure Access & Profile Intelligence</p>
-            <a href="http://localhost:3000/api/v1/auth/github?redirect_to=http://localhost:4000/auth/callback" class="github-btn">
+            <a href="${BACKEND_URL}/auth/github?redirect_to=${WEB_URL}/auth/callback" class="github-btn">
                 Login with GitHub
             </a>
         </div>
@@ -231,3 +232,11 @@ app.post('/logout', (c) => {
 });
 
 export default { port: 4000, fetch: app.fetch };
+
+// ── Export for Vercel ───────────────────────────────────────────────
+import { handle } from "hono/vercel";
+export const GET = handle(app);
+export const POST = handle(app);
+export const PUT = handle(app);
+export const DELETE = handle(app);
+export const PATCH = handle(app);
