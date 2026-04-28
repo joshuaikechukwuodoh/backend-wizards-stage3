@@ -1,0 +1,31 @@
+{
+  "name": "backend-wizards-stage3-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "web",
+    "cli"
+  ],
+  "scripts": {
+    "build": "echo 'Building monorepo...'",
+    "install-all": "npm install --workspaces"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "drizzle-orm": "^0.30.0",
+    "jose": "^4.0.0",
+    "postgres": "^3.0.0",
+    "uuidv7": "^1.0.0",
+    "commander": "^12.0.0",
+    "axios": "^1.0.0",
+    "open": "^10.0.0",
+    "chalk": "^5.0.0",
+    "ora": "^8.0.0",
+    "dotenv": "^16.0.0"
+  }
+}
