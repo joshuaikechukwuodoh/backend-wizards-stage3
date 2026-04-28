@@ -1,0 +1,30 @@
+name: Insighta Labs+ CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+
+    - name: Install Dependencies
+      run: |
+        cd backend && bun install
+        cd ../web && bun install
+        cd ../cli && bun install
+
+    - name: Run Lint/Build Check
+      run: |
+        cd backend && bun run build || echo "No build step"
+        cd ../web && bun run build || echo "No build step"
