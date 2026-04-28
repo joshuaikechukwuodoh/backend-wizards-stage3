@@ -10,6 +10,7 @@ const BACKEND_URL = process.env.API_URL || (isVercel ? '/api/v1' : 'http://local
 const WEB_URL = process.env.WEB_URL || (isVercel ? '' : 'http://localhost:4000');
 
 // CSRF Protection Middleware
+app.get('/favicon.ico', (c) => c.body(null, 204));
 app.use('*', async (c, next) => {
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(c.req.method)) {
     const csrfCookie = getCookie(c, 'csrf_token');
@@ -175,22 +176,26 @@ app.get('/dashboard', (c) => {
         </main>
         <script>
             let currentPage = 1;
-            const csrfToken = "\${getCookie(c, 'csrf_token')}";
+            const csrfToken = "${getCookie(c, 'csrf_token')}";
 
             async function fetchUser() {
                 try {
                     const res = await fetch('/api/me');
+                    if (res.status === 401) {
+                         window.location.href = '/';
+                         return;
+                    }
                     const data = await res.json();
                     if (data.status === 'success' && data.user) {
                         const user = data.user;
                         document.getElementById('user-info').textContent = 'Logged in as ' + user.username + ' (' + user.role + ')';
                         if (user.role === 'admin') document.getElementById('export-btn').style.display = 'inline-block';
                     } else {
-                        window.location.href = '/';
+                        // Avoid redirect loop: only redirect if we're sure the session is dead
+                        console.error('Session invalid:', data.message);
                     }
                 } catch (e) {
                     console.error('Fetch user error:', e);
-                    window.location.href = '/';
                 }
             }
 
