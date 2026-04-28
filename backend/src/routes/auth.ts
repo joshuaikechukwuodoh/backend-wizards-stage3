@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { setCookie } from "hono/cookie";
+import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { HonoEnv } from "../types";
 import { generateCodeVerifier, generateCodeChallenge } from "../auth/pkce";
 import { getGitHubAuthURL, exchangeCodeForToken, getGitHubUser, getGitHubEmails } from "../auth/github";
@@ -8,17 +8,6 @@ import { db } from "../db";
 import { users, sessions } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
-
-// Temporary in-memory state store (verifier keyed by random state)
-const stateStore = new Map<string, { verifier: string; redirectTo: string; authRedirectUri: string; createdAt: number }>();
-
-// Clean up states older than 10 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, val] of stateStore.entries()) {
-    if (now - val.createdAt > 10 * 60 * 1000) stateStore.delete(key);
-  }
-}, 5 * 60 * 1000);
 
 const authRouter = new Hono<HonoEnv>();
 
@@ -37,7 +26,12 @@ authRouter.get("/github", async (c: Context<HonoEnv>) => {
     authRedirectUri = `${protocol}://${host}/api/v1/auth/callback`;
   }
 
-  stateStore.set(state, { verifier, redirectTo, authRedirectUri, createdAt: Date.now() });
+  // Store state and verifier in cookies (encrypted/secure if possible, but at least httpOnly)
+  // We'll use a simple approach for now: set them as cookies.
+  setCookie(c, "oauth_state", state, { httpOnly: true, path: "/", maxAge: 600, sameSite: "Lax" });
+  setCookie(c, "oauth_verifier", verifier, { httpOnly: true, path: "/", maxAge: 600, sameSite: "Lax" });
+  setCookie(c, "oauth_redirect", redirectTo, { httpOnly: true, path: "/", maxAge: 600, sameSite: "Lax" });
+  setCookie(c, "oauth_callback_uri", authRedirectUri, { httpOnly: true, path: "/", maxAge: 600, sameSite: "Lax" });
 
   const url = getGitHubAuthURL(challenge, state, authRedirectUri);
   return c.redirect(url);
@@ -49,6 +43,17 @@ authRouter.get("/callback", async (c: Context<HonoEnv>) => {
   const state = c.req.query("state");
   const error = c.req.query("error");
 
+  const savedState = getCookie(c, "oauth_state");
+  const verifier = getCookie(c, "oauth_verifier");
+  const redirectTo = getCookie(c, "oauth_redirect");
+  const authRedirectUri = getCookie(c, "oauth_callback_uri");
+
+  // Clean up cookies
+  deleteCookie(c, "oauth_state");
+  deleteCookie(c, "oauth_verifier");
+  deleteCookie(c, "oauth_redirect");
+  deleteCookie(c, "oauth_callback_uri");
+
   if (error) {
     return c.json({ status: "error", message: `GitHub error: ${error}` }, 400);
   }
@@ -56,18 +61,13 @@ authRouter.get("/callback", async (c: Context<HonoEnv>) => {
   if (!code) {
     return c.json({ status: "error", message: "Missing code parameter" }, 400);
   }
-  if (!state) {
-    return c.json({ status: "error", message: "Missing state parameter" }, 400);
-  }
-
-  const stateData = stateStore.get(state);
-  if (!stateData) {
+  
+  if (!state || state !== savedState || !verifier || !authRedirectUri) {
     return c.json({ status: "error", message: "Invalid or expired state" }, 401);
   }
-  stateStore.delete(state);
 
   try {
-    const githubToken = await exchangeCodeForToken(code, stateData.verifier, stateData.authRedirectUri);
+    const githubToken = await exchangeCodeForToken(code, verifier, authRedirectUri);
     const githubUser = (await getGitHubUser(githubToken)) as {
       id: number;
       login: string;
