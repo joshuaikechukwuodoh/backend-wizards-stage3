@@ -140,7 +140,7 @@ app.get('/dashboard', (c) => {
   const accessToken = getCookie(c, 'access_token');
   if (!accessToken) return c.redirect('/');
 
-  return c.html(\`
+  return c.html(`
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -238,7 +238,7 @@ app.get('/dashboard', (c) => {
         </script>
     </body>
     </html>
-  \`);
+  `);
 });
 
 app.post('/logout', (c) => {
@@ -250,7 +250,7 @@ app.post('/logout', (c) => {
 
 export default { port: 4000, fetch: app.fetch };
 
-// ── Export for Vercel ───────────────────────────────────────────────
+// --- Export for Vercel -----------------------------------------------
 import { handle } from "hono/vercel";
 export const GET = handle(app);
 export const POST = handle(app);
