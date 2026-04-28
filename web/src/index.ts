@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { serveStatic } from 'hono/bun';
+// Removed hono/bun import to prevent Vercel Node runtime crash
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import crypto from 'node:crypto';
 
@@ -90,8 +90,8 @@ app.get('/api/profiles/export', async (c) => {
   return c.body(await res.text());
 });
 
-// Serve static files
-app.use('/static/*', serveStatic({ root: './' }));
+// Serve static files (handled by Vercel in production via vercel.json)
+// If running locally, you would need hono/bun serveStatic here.
 
 app.get('/', (c) => {
   const accessToken = getCookie(c, 'access_token');
