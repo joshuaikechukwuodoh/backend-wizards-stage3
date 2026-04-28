@@ -42,19 +42,19 @@ authRouter.get("/callback", async (c: Context<HonoEnv>) => {
   const error = c.req.query("error");
 
   if (error) {
-    return c.json({ status: "error", message: `GitHub error: ${error}` }, { status: 400 });
+    return c.json({ status: "error", message: `GitHub error: ${error}` }, 400);
   }
 
   if (!code) {
-    return c.json({ status: "error", message: "Missing code parameter" }, { status: 400 });
+    return c.json({ status: "error", message: "Missing code parameter" }, 400);
   }
   if (!state) {
-    return c.json({ status: "error", message: "Missing state parameter" }, { status: 400 });
+    return c.json({ status: "error", message: "Missing state parameter" }, 400);
   }
 
   const stateData = stateStore.get(state);
   if (!stateData) {
-    return c.json({ status: "error", message: "Invalid or expired state" }, { status: 400 });
+    return c.json({ status: "error", message: "Invalid or expired state" }, 401);
   }
   stateStore.delete(state);
 
@@ -100,7 +100,7 @@ authRouter.get("/callback", async (c: Context<HonoEnv>) => {
     }
 
     if (!user) {
-      return c.json({ status: "error", message: "Authentication failed: User record missing" }, { status: 500 });
+      return c.json({ status: "error", message: "Authentication failed: User record missing" }, 500);
     }
 
     // Issue tokens
@@ -122,7 +122,6 @@ authRouter.get("/callback", async (c: Context<HonoEnv>) => {
       try {
         redirectUrl = new URL(stateData.redirectTo);
       } catch {
-        // Fallback for relative paths
         const host = c.req.header("host") || "localhost:3000";
         const protocol = host.startsWith("localhost") ? "http" : "https";
         redirectUrl = new URL(stateData.redirectTo, `${protocol}://${host}`);
@@ -130,20 +129,13 @@ authRouter.get("/callback", async (c: Context<HonoEnv>) => {
 
       redirectUrl.searchParams.set("access_token", accessToken);
       redirectUrl.searchParams.set("refresh_token", refreshTokenStr);
-      redirectUrl.searchParams.set("user", JSON.stringify({
-        id: user.id,
-        username: user.github_username,
-        role: user.role
-      }));
-
-      // Still set cookies for the web portal
+      
       setCookie(c, "access_token", accessToken, { httpOnly: true, path: "/", maxAge: 900, sameSite: "Lax" });
       setCookie(c, "refresh_token", refreshTokenStr, { httpOnly: true, path: "/", maxAge: 604800, sameSite: "Lax" });
       
       return c.redirect(redirectUrl.toString());
     }
 
-    // CLI / API response
     return c.json({
       status: "success",
       access_token: accessToken,
@@ -160,30 +152,30 @@ authRouter.get("/callback", async (c: Context<HonoEnv>) => {
     });
   } catch (err: any) {
     console.error("OAuth callback error:", err);
-    return c.json({ status: "error", message: "Authentication failed", detail: err.message }, { status: 500 });
+    return c.json({ status: "error", message: "Authentication failed", detail: err.message }, 500);
   }
 });
 
 // POST /api/v1/auth/refresh
-authRouter.on(["GET", "PUT", "DELETE", "PATCH"], "/refresh", (c) => c.json({ status: "error", message: "Method not allowed" }, 405));
+authRouter.get("/refresh", (c) => c.json({ status: "error", message: "POST method required" }, 405));
 authRouter.post("/refresh", async (c: Context<HonoEnv>) => {
   const body = await c.req.json().catch(() => ({})) as any;
   const refreshToken = body.refresh_token;
 
   if (!refreshToken) {
-    return c.json({ status: "error", message: "refresh_token is required" }, { status: 400 });
+    return c.json({ status: "error", message: "refresh_token is required" }, 400);
   }
 
   const sessionRows = await db.select().from(sessions).where(eq(sessions.refresh_token, refreshToken));
   const session = sessionRows[0];
 
   if (!session || session.expires_at < new Date()) {
-    return c.json({ status: "error", message: "Invalid or expired refresh token" }, { status: 401 });
+    return c.json({ status: "error", message: "Invalid or expired refresh token" }, 401);
   }
 
   const userRows = await db.select().from(users).where(eq(users.id, session.user_id));
   const user = userRows[0];
-  if (!user) return c.json({ status: "error", message: "User not found" }, { status: 401 });
+  if (!user) return c.json({ status: "error", message: "User not found" }, 401);
 
   const accessToken = await signAccessToken({
     sub: user.id,
@@ -195,7 +187,7 @@ authRouter.post("/refresh", async (c: Context<HonoEnv>) => {
 });
 
 // POST /api/v1/auth/logout
-authRouter.on(["GET", "PUT", "DELETE", "PATCH"], "/logout", (c) => c.json({ status: "error", message: "Method not allowed" }, 405));
+authRouter.get("/logout", (c) => c.json({ status: "error", message: "POST method required" }, 405));
 authRouter.post("/logout", async (c: Context<HonoEnv>) => {
   const body = await c.req.json().catch(() => ({})) as any;
   const refreshToken = body.refresh_token;
@@ -209,17 +201,17 @@ authRouter.post("/logout", async (c: Context<HonoEnv>) => {
 authRouter.get("/me", async (c: Context<HonoEnv>) => {
   const authHeader = c.req.header("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return c.json({ status: "error", message: "Unauthorized" }, { status: 401 });
+    return c.json({ status: "error", message: "Unauthorized" }, 401);
   }
 
   const payload = await verifyToken(authHeader.slice(7));
   if (!payload || payload.type !== "access") {
-    return c.json({ status: "error", message: "Invalid or expired token" }, { status: 401 });
+    return c.json({ status: "error", message: "Invalid or expired token" }, 401);
   }
 
   const userRows = await db.select().from(users).where(eq(users.id, payload.sub));
   const user = userRows[0];
-  if (!user) return c.json({ status: "error", message: "User not found" }, { status: 404 });
+  if (!user) return c.json({ status: "error", message: "User not found" }, 404);
 
   return c.json({
     status: "success",
