@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 // Temporary in-memory state store (verifier keyed by random state)
-const stateStore = new Map<string, { verifier: string; redirectTo: string; createdAt: number }>();
+const stateStore = new Map<string, { verifier: string; redirectTo: string; authRedirectUri: string; createdAt: number }>();
 
 // Clean up states older than 10 minutes
 setInterval(() => {
@@ -29,17 +29,17 @@ authRouter.get("/github", async (c: Context<HonoEnv>) => {
   const state = generateCodeVerifier(); // random state token
   const redirectTo = c.req.query("redirect_to") || "";
 
-  stateStore.set(state, { verifier, redirectTo, createdAt: Date.now() });
-
   // Safety: Detect if we are on production and GITHUB_CALLBACK_URL is still localhost
-  let dynamicRedirect: string | undefined;
+  let authRedirectUri = process.env.GITHUB_CALLBACK_URL!;
   const host = c.req.header("host");
-  if (host && !host.includes("localhost") && process.env.GITHUB_CALLBACK_URL?.includes("localhost")) {
+  if (host && !host.includes("localhost") && authRedirectUri.includes("localhost")) {
     const protocol = host.includes("vercel.app") ? "https" : "http";
-    dynamicRedirect = `${protocol}://${host}/api/v1/auth/callback`;
+    authRedirectUri = `${protocol}://${host}/api/v1/auth/callback`;
   }
 
-  const url = getGitHubAuthURL(challenge, state, dynamicRedirect);
+  stateStore.set(state, { verifier, redirectTo, authRedirectUri, createdAt: Date.now() });
+
+  const url = getGitHubAuthURL(challenge, state, authRedirectUri);
   return c.redirect(url);
 });
 
@@ -67,7 +67,7 @@ authRouter.get("/callback", async (c: Context<HonoEnv>) => {
   stateStore.delete(state);
 
   try {
-    const githubToken = await exchangeCodeForToken(code, stateData.verifier);
+    const githubToken = await exchangeCodeForToken(code, stateData.verifier, stateData.authRedirectUri);
     const githubUser = (await getGitHubUser(githubToken)) as {
       id: number;
       login: string;

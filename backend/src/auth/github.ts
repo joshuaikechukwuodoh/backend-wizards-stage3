@@ -12,12 +12,12 @@ export function getGitHubAuthURL(codeChallenge: string, state: string, dynamicRe
   return `https://github.com/login/oauth/authorize?${params}`;
 }
 
-export async function exchangeCodeForToken(code: string, codeVerifier: string): Promise<string> {
+export async function exchangeCodeForToken(code: string, codeVerifier: string, redirectUri: string): Promise<string> {
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID!,
     client_secret: process.env.GITHUB_CLIENT_SECRET!,
     code,
-    redirect_uri: process.env.GITHUB_CALLBACK_URL!,
+    redirect_uri: redirectUri,
     code_verifier: codeVerifier,
   });
 
