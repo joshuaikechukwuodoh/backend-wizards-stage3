@@ -177,13 +177,17 @@ app.get('/dashboard', (c) => {
             const csrfToken = "${getCookie(c, 'csrf_token')}";
 
             async function fetchUser() {
-                const res = await fetch('/api/me');
-                const data = await res.json();
-                if (data.status === 'success') {
-                    const user = data.user;
-                    document.getElementById('user-info').textContent = \`Logged in as \${user.username} (\${user.role})\`;
-                    if (user.role === 'admin') document.getElementById('export-btn').style.display = 'inline-block';
-                } else {
+                try {
+                    const res = await fetch('/api/users/me');
+                    const data = await res.json();
+                    if (data.status === 'success') {
+                        const user = data.user;
+                        document.getElementById('user-info').textContent = `Logged in as ${user.username} (${user.role})`;
+                        if (user.role === 'admin') document.getElementById('export-btn').style.display = 'inline-block';
+                    } else {
+                        window.location.href = '/';
+                    }
+                } catch (e) {
                     window.location.href = '/';
                 }
             }
@@ -192,27 +196,35 @@ app.get('/dashboard', (c) => {
                 currentPage = page;
                 const search = document.getElementById('search-input').value;
                 const url = search 
-                    ? \`/api/profiles/search?q=\${encodeURIComponent(search)}&page=\${page}\`
-                    : \`/api/profiles?page=\${page}\`;
+                    ? `/api/profiles/search?q=${encodeURIComponent(search)}&page=${page}`
+                    : `/api/profiles?page=${page}`;
                 
-                const res = await fetch(url);
-                const data = await res.json();
-                
-                const body = document.getElementById('profile-body');
-                body.innerHTML = '';
-                data.data.forEach(p => {
-                    const row = \`<tr><td>\${p.name}</td><td>\${p.age}</td><td>\${p.gender}</td><td>\${p.country_name}</td></tr>\`;
-                    body.innerHTML += row;
-                });
-                document.getElementById('page-info').textContent = \`Page \${data.metadata.page}\`;
+                try {
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    
+                    const body = document.getElementById('profile-body');
+                    body.innerHTML = '';
+                    if (data.status === 'success' && data.data) {
+                        data.data.forEach(p => {
+                            const row = `<tr><td>${p.name}</td><td>${p.age}</td><td>${p.gender}</td><td>${p.country_name}</td></tr>`;
+                            body.innerHTML += row;
+                        });
+                        document.getElementById('page-info').textContent = `Page ${data.metadata.page}`;
+                    } else {
+                        body.innerHTML = '<tr><td colspan="4">No profiles found or error loading.</td></tr>';
+                    }
+                } catch (e) {
+                    console.error("Error loading profiles:", e);
+                }
             }
 
             function changePage(delta) {
                 loadProfiles(currentPage + delta);
             }
 
-            async function exportData() {
-                window.location.href = '/api/profiles/export';
+            function exportData() {
+                window.location.href = '/api/v1/profiles/export';
             }
 
             async function logout() {
