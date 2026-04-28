@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-// Removed hono/bun import to prevent Vercel Node runtime crash
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import crypto from 'node:crypto';
 
@@ -72,6 +71,11 @@ app.get('/api/me', async (c) => {
   return c.json(await res.json(), res.status as any);
 });
 
+app.get('/api/users/me', async (c) => {
+  const res = await proxyToBackend(c, '/auth/me');
+  return c.json(await res.json(), res.status as any);
+});
+
 app.get('/api/profiles', async (c) => {
   const query = new URL(c.req.url).search;
   const res = await proxyToBackend(c, `/profiles${query}`);
@@ -92,9 +96,6 @@ app.get('/api/profiles/export', async (c) => {
   c.header('Content-Disposition', res.headers.get('Content-Disposition') || 'attachment; filename=export.csv');
   return c.body(await res.text());
 });
-
-// Serve static files (handled by Vercel in production via vercel.json)
-// If running locally, you would need hono/bun serveStatic here.
 
 app.get('/', (c) => {
   const accessToken = getCookie(c, 'access_token');
@@ -139,7 +140,7 @@ app.get('/dashboard', (c) => {
   const accessToken = getCookie(c, 'access_token');
   if (!accessToken) return c.redirect('/');
 
-  return c.html(`
+  return c.html(\`
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -174,20 +175,21 @@ app.get('/dashboard', (c) => {
         </main>
         <script>
             let currentPage = 1;
-            const csrfToken = "${getCookie(c, 'csrf_token')}";
+            const csrfToken = "\${getCookie(c, 'csrf_token')}";
 
             async function fetchUser() {
                 try {
-                    const res = await fetch('/api/users/me');
+                    const res = await fetch('/api/me');
                     const data = await res.json();
-                    if (data.status === 'success') {
+                    if (data.status === 'success' && data.user) {
                         const user = data.user;
-                        document.getElementById('user-info').textContent = `Logged in as ${user.username} (${user.role})`;
+                        document.getElementById('user-info').textContent = 'Logged in as ' + user.username + ' (' + user.role + ')';
                         if (user.role === 'admin') document.getElementById('export-btn').style.display = 'inline-block';
                     } else {
                         window.location.href = '/';
                     }
                 } catch (e) {
+                    console.error('Fetch user error:', e);
                     window.location.href = '/';
                 }
             }
@@ -196,8 +198,8 @@ app.get('/dashboard', (c) => {
                 currentPage = page;
                 const search = document.getElementById('search-input').value;
                 const url = search 
-                    ? `/api/profiles/search?q=${encodeURIComponent(search)}&page=${page}`
-                    : `/api/profiles?page=${page}`;
+                    ? '/api/profiles/search?q=' + encodeURIComponent(search) + '&page=' + page
+                    : '/api/profiles?page=' + page;
                 
                 try {
                     const res = await fetch(url);
@@ -207,10 +209,10 @@ app.get('/dashboard', (c) => {
                     body.innerHTML = '';
                     if (data.status === 'success' && data.data) {
                         data.data.forEach(p => {
-                            const row = `<tr><td>${p.name}</td><td>${p.age}</td><td>${p.gender}</td><td>${p.country_name}</td></tr>`;
+                            const row = '<tr><td>' + p.name + '</td><td>' + p.age + '</td><td>' + p.gender + '</td><td>' + p.country_name + '</td></tr>';
                             body.innerHTML += row;
                         });
-                        document.getElementById('page-info').textContent = `Page ${data.metadata.page}`;
+                        document.getElementById('page-info').textContent = 'Page ' + data.metadata.page;
                     } else {
                         body.innerHTML = '<tr><td colspan="4">No profiles found or error loading.</td></tr>';
                     }
@@ -224,7 +226,7 @@ app.get('/dashboard', (c) => {
             }
 
             function exportData() {
-                window.location.href = '/api/v1/profiles/export';
+                window.location.href = '/api/profiles/export';
             }
 
             async function logout() {
@@ -236,7 +238,7 @@ app.get('/dashboard', (c) => {
         </script>
     </body>
     </html>
-  `);
+  \`);
 });
 
 app.post('/logout', (c) => {
