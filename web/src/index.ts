@@ -52,7 +52,13 @@ async function proxyToBackend(c: any, path: string, method: string = 'GET', body
     if (res.status === 401) {
        const refreshToken = getCookie(c, 'refresh_token');
        if (refreshToken) {
-          const refreshRes = await fetch(`${BACKEND_URL}/auth/refresh`, {
+          let refreshUrl = `${BACKEND_URL}/auth/refresh`;
+          if (refreshUrl.startsWith('/')) {
+            const host = c.req.header('host') || 'localhost:4000';
+            const protocol = host.includes('localhost') ? 'http' : 'https';
+            refreshUrl = `${protocol}://${host}${refreshUrl}`;
+          }
+          const refreshRes = await fetch(refreshUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refresh_token: refreshToken })
