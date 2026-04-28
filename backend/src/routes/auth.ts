@@ -45,8 +45,11 @@ authRouter.get("/callback", async (c: Context<HonoEnv>) => {
     return c.json({ status: "error", message: `GitHub error: ${error}` }, { status: 400 });
   }
 
-  if (!code || !state) {
-    return c.json({ status: "error", message: "Missing code or state parameter" }, { status: 400 });
+  if (!code) {
+    return c.json({ status: "error", message: "Missing code parameter" }, { status: 400 });
+  }
+  if (!state) {
+    return c.json({ status: "error", message: "Missing state parameter" }, { status: 400 });
   }
 
   const stateData = stateStore.get(state);
@@ -162,6 +165,7 @@ authRouter.get("/callback", async (c: Context<HonoEnv>) => {
 });
 
 // POST /api/v1/auth/refresh
+authRouter.on(["GET", "PUT", "DELETE", "PATCH"], "/refresh", (c) => c.json({ status: "error", message: "Method not allowed" }, 405));
 authRouter.post("/refresh", async (c: Context<HonoEnv>) => {
   const body = await c.req.json().catch(() => ({})) as any;
   const refreshToken = body.refresh_token;
@@ -191,6 +195,7 @@ authRouter.post("/refresh", async (c: Context<HonoEnv>) => {
 });
 
 // POST /api/v1/auth/logout
+authRouter.on(["GET", "PUT", "DELETE", "PATCH"], "/logout", (c) => c.json({ status: "error", message: "Method not allowed" }, 405));
 authRouter.post("/logout", async (c: Context<HonoEnv>) => {
   const body = await c.req.json().catch(() => ({})) as any;
   const refreshToken = body.refresh_token;
