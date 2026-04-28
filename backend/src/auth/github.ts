@@ -1,7 +1,9 @@
-export function getGitHubAuthURL(codeChallenge: string, state: string): string {
+export function getGitHubAuthURL(codeChallenge: string, state: string, dynamicRedirectUri?: string): string {
+  const redirectUri = dynamicRedirectUri || process.env.GITHUB_CALLBACK_URL!;
+  
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID!,
-    redirect_uri: process.env.GITHUB_CALLBACK_URL!,
+    redirect_uri: redirectUri,
     scope: "read:user user:email",
     state,
     code_challenge: codeChallenge,

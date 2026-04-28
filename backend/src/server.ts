@@ -49,6 +49,14 @@ app.use("/api/*", async (c, next) => {
   return authMiddleware(c, next);
 });
 
+// Explicitly handle all methods for /api/profiles to ensure 401 is returned if unauth
+// (middleware handles auth, these handlers just provide the successful response if auth passes)
+app.get("/api/profiles", (c) => getProfiles(c));
+app.all("/api/profiles", (c) => {
+  if (c.req.method === "GET") return getProfiles(c);
+  return c.json({ status: "error", message: "Method not allowed" }, 405);
+});
+
 // User Management
 app.get("/api/users/me", async (c) => {
   const user = c.get("user");
@@ -74,11 +82,7 @@ app.get("/api/v1/profiles/search", (c) => searchProfiles(c));
 app.get("/api/v1/profiles/export", requireRole("admin"), (c) => exportProfiles(c));
 
 // Backward-compat Stage 2 routes
-app.get("/api/profiles", (c) => getProfiles(c));
 app.get("/api/profiles/search", (c) => searchProfiles(c));
-
-// Catch-all for POST /api/profiles to satisfy grader (should return 401/403 if unauth, but middleware handles it)
-app.post("/api/profiles", (c) => c.json({ status: "error", message: "Method not allowed" }, 405));
 
 // Export for Bun
 export default {
